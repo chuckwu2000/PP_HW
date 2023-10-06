@@ -63,7 +63,7 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
 		}
 		else
 		{
-			mask_range = _pp_init_ones();	//1111 1111 (default size = VECTOR_WIDTH)
+			mask_range = _pp_init_ones();					//1111 1111 (default size = VECTOR_WIDTH)
 		}
 		_pp_vload_float(val_vec, values + i, mask_range);						//float x = values[i];
 		_pp_vload_int(exp_vec, exponents + i, mask_range);						//int y = exponents[i];
@@ -100,14 +100,47 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
 // You can assume VECTOR_WIDTH is a power of 2
 float arraySumVector(float *values, int N)
 {
-
   //
   // PP STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
+	__pp_mask mask_range;
 
-  for (int i = 0; i < N; i += VECTOR_WIDTH)
-  {
-  }
+	if(N == VECTOR_WIDTH)		//last vector (all tmp_sum are in this vector)
+	{
+		__pp_vec_float val_vec;
+		mask_range = _pp_init_ones();
+		_pp_vload_float(val_vec, values + 0, mask_range);
+		while(1)				//accumulate last vector , put sum in the first half of vector
+		{
+			_pp_hadd_float(val_vec, val_vec);
+			_pp_interleave_float(val_vec, val_vec);
+			N /= 2;
+			if(N == 1)
+			{
+				break;
+			}
+		}
+		_pp_vstore_float(values + 0, val_vec, mask_range);
+		return *(values + 0);	//sum is put in the first element
+	}
 
-  return 0.0;
+	__pp_vec_float val_vec1 , val_vec2;
+
+	int total_vec = (N/VECTOR_WIDTH);
+	int need_to_sum = total_vec/2;
+	int still_need_to_add = (total_vec % 2 == 0) ?(total_vec / 2) :(total_vec / 2 + 1);
+	still_need_to_add *= VECTOR_WIDTH;	//first half of all element
+
+	for(int i = 0;i < need_to_sum;i++)
+	{
+		int offset1 = i * VECTOR_WIDTH;
+		int offset2 = still_need_to_add;
+		mask_range = _pp_init_ones();
+		_pp_vload_float(val_vec1, values + offset1, mask_range);
+		_pp_vload_float(val_vec2, values + offset1 + offset2, mask_range);
+		_pp_vadd_float(val_vec1, val_vec1, val_vec2, mask_range);
+		_pp_vstore_float(values + offset1, val_vec1, mask_range);
+	}
+
+	return arraySumVector(values, still_need_to_add);	//keep accumulate all element until leave one vector
 }
