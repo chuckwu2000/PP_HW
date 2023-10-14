@@ -103,44 +103,22 @@ float arraySumVector(float *values, int N)
   //
   // PP STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
-	__pp_mask mask_range;
+	
+	__pp_mask mask_range = _pp_init_ones();
+	__pp_vec_float sum_vec = _pp_vset_float(0.0f);
+	__pp_vec_float tmp_vec;
 
-	if(N == VECTOR_WIDTH)		//last vector (all tmp_sum are in this vector)
+	for(int i = 0;i < N;i += VECTOR_WIDTH)
 	{
-		__pp_vec_float val_vec;
-		mask_range = _pp_init_ones();
-		_pp_vload_float(val_vec, values + 0, mask_range);
-		while(1)				//accumulate last vector , put sum in the first half of vector
-		{
-			_pp_hadd_float(val_vec, val_vec);
-			_pp_interleave_float(val_vec, val_vec);
-			N /= 2;
-			if(N == 1)
-			{
-				break;
-			}
-		}
-		_pp_vstore_float(values + 0, val_vec, mask_range);
-		return *(values + 0);	//sum is put in the first element
+		_pp_vload_float(tmp_vec, values + i, mask_range);
+		_pp_vadd_float(sum_vec, sum_vec, tmp_vec, mask_range);
 	}
 
-	__pp_vec_float val_vec1 , val_vec2;
-
-	int total_vec = (N/VECTOR_WIDTH);
-	int need_to_sum = total_vec/2;
-	int still_need_to_add = (total_vec % 2 == 0) ?(total_vec / 2) :(total_vec / 2 + 1);
-	still_need_to_add *= VECTOR_WIDTH;	//first half of all element
-
-	for(int i = 0;i < need_to_sum;i++)
+	for(int i = 1;i < VECTOR_WIDTH;i *= 2)
 	{
-		int offset1 = i * VECTOR_WIDTH;
-		int offset2 = still_need_to_add;
-		mask_range = _pp_init_ones();
-		_pp_vload_float(val_vec1, values + offset1, mask_range);
-		_pp_vload_float(val_vec2, values + offset1 + offset2, mask_range);
-		_pp_vadd_float(val_vec1, val_vec1, val_vec2, mask_range);
-		_pp_vstore_float(values + offset1, val_vec1, mask_range);
+		_pp_hadd_float(sum_vec, sum_vec);
+		_pp_interleave_float(sum_vec, sum_vec);
 	}
 
-	return arraySumVector(values, still_need_to_add);	//keep accumulate all element until leave one vector
+	return sum_vec.value[0];
 }
