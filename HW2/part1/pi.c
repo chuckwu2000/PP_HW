@@ -13,7 +13,7 @@ pthread_mutex_t mutex;
 
 void* toss_func(void* rank)
 {
-	unsigned int seed = (unsigned)time(NULL);
+	unsigned int seed = (unsigned)time(NULL) + (unsigned)rank;
 
 	int tmp_in_circle = 0;
 	long long size = number_of_toss/thread_total;
