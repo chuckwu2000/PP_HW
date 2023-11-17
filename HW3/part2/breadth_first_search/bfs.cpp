@@ -35,7 +35,7 @@ void top_down_step(
     vertex_set *new_frontier,
     int *distances)
 {
-	#pragma omp parallel for schedule(static, 1024)
+	#pragma omp parallel for schedule(dynamic, 1300)
     for (int i = 0; i < frontier->count; i++)
     {
         int node = frontier->vertices[i];
@@ -56,7 +56,6 @@ void top_down_step(
 				{
 					index = new_frontier->count;
 				}
-				//int index = new_frontier->count++;
                 new_frontier->vertices[index] = outgoing;
             }
         }
@@ -117,7 +116,7 @@ void bottom_up_step(
     int *distances,
 	int *non_visited)
 {
-	#pragma omp parallel for schedule(static, 1024)
+	#pragma omp parallel for schedule(dynamic, 1300)
 	for(int i = 0;i < g->num_nodes;i++)
 	{
 		if(distances[i] == NOT_VISITED_MARKER)
@@ -181,8 +180,6 @@ void bfs_bottom_up(Graph graph, solution *sol)
         double start_time = CycleTimer::currentSeconds();
 		#endif
 
-        //vertex_set_clear(new_frontier);
-
 		non_visted = 0;
         bottom_up_step(graph, frontier, new_frontier, sol->distances, &non_visted);
 
@@ -199,10 +196,127 @@ void bfs_bottom_up(Graph graph, solution *sol)
 	return;
 }
 
+void hybrid_step(
+    Graph g,
+    vertex_set *frontier,
+    vertex_set *new_frontier,
+    int *distances,
+	int *visited_mask,
+	int *new_visited_mask)
+{
+	if(((frontier->count * 1.0f) / g->num_nodes) < 0.4)	//use top_down better
+	{
+		#pragma omp parallel for schedule(dynamic, 1300)
+    	for (int i = 0; i < frontier->count; i++)
+    	{
+        	int node = frontier->vertices[i];
+        	int start_edge = g->outgoing_starts[node];
+        	int end_edge = (node == g->num_nodes - 1) ?g->num_edges :g->outgoing_starts[node + 1];
+
+        	for (int neighbor = start_edge; neighbor < end_edge; neighbor++)
+        	{
+            	int outgoing = g->outgoing_edges[neighbor];
+
+            	if (distances[outgoing] == NOT_VISITED_MARKER)
+            	{
+                	distances[outgoing] = distances[node] + 1;
+					new_visited_mask[outgoing] = 1;
+					int index = new_frontier->count;
+					while(!__sync_bool_compare_and_swap(&new_frontier->count, index, new_frontier->count + 1))
+					{
+						index = new_frontier->count;
+					}
+                	new_frontier->vertices[index] = outgoing;
+            	}
+        	}
+    	}
+		return;
+	}	
+	else	//use bottom_up better
+	{
+		#pragma omp parallel for schedule(dynamic, 1300)
+		for(int i = 0;i < g->num_nodes;i++)
+		{
+			if(distances[i] == NOT_VISITED_MARKER)
+			{
+				int start_edge = g->incoming_starts[i];
+				int end_edge = (i == g->num_nodes - 1) ?g->num_edges :g->incoming_starts[i + 1];
+
+        		for(int neighbor = start_edge;neighbor < end_edge;neighbor++)
+        		{
+           			int incoming = g->incoming_edges[neighbor];
+					if(visited_mask[incoming])
+					{
+                		distances[i] = distances[incoming] + 1;
+						new_visited_mask[i] = 1;
+						int index = new_frontier->count;
+						while(!__sync_bool_compare_and_swap(&new_frontier->count, index, new_frontier->count + 1))
+						{
+							index = new_frontier->count;
+						}
+                		new_frontier->vertices[index] = i;
+						break;
+					}
+				}
+			}
+		}
+		return;
+	}
+	return;
+}
+
 void bfs_hybrid(Graph graph, solution *sol)
 {
     // For PP students:
     //
     // You will need to implement the "hybrid" BFS here as
     // described in the handout.
+    vertex_set list1;
+    vertex_set list2;
+    vertex_set_init(&list1, graph->num_nodes);
+    vertex_set_init(&list2, graph->num_nodes);
+
+    vertex_set *frontier = &list1;
+    vertex_set *new_frontier = &list2;
+
+	int* visited_mask = (int*)malloc(sizeof(int) * graph->num_nodes);
+	int* new_visited_mask = (int*)malloc(sizeof(int) * graph->num_nodes);
+	#pragma omp parallel for
+    for (int i = 0; i < graph->num_nodes; i++)
+	{
+        sol->distances[i] = NOT_VISITED_MARKER;
+		visited_mask[i] = 0;
+	}
+
+    // setup frontier with the root node
+    frontier->vertices[frontier->count++] = ROOT_NODE_ID;
+    sol->distances[ROOT_NODE_ID] = 0;
+	new_visited_mask[ROOT_NODE_ID] = 1;
+
+    while(frontier->count != 0)
+    {
+		#ifdef VERBOSE
+        double start_time = CycleTimer::currentSeconds();
+		#endif
+
+        vertex_set_clear(new_frontier);
+		#pragma omp parallel for
+		for(int i = 0;i < graph->num_nodes;i++)
+		{
+			visited_mask[i] = new_visited_mask[i];
+		}
+
+        hybrid_step(graph, frontier, new_frontier, sol->distances, visited_mask, new_visited_mask);
+
+		#ifdef VERBOSE
+        double end_time = CycleTimer::currentSeconds();
+        printf("frontier=%-10d %.4f sec\n", frontier->count, end_time - start_time);
+		#endif
+
+        // swap pointers
+        vertex_set *tmp = frontier;
+        frontier = new_frontier;
+        new_frontier = tmp;
+    }
+	return;
 }
