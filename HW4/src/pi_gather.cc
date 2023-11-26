@@ -37,7 +37,11 @@ int main(int argc, char **argv)
     }
 
     // TODO: use MPI_Gather
-	long long number_in_circle_array[world_size];
+	long long *number_in_circle_array = NULL;
+    if(world_rank == 0)
+    {
+        number_in_circle_array = (long long*)malloc(sizeof(long long) * world_size);
+    }
     MPI_Gather(&number_in_circle_per_process, 1, MPI_LONG_LONG, number_in_circle_array, 1, MPI_LONG_LONG, 0, MPI_COMM_WORLD);
 
     if (world_rank == 0)
