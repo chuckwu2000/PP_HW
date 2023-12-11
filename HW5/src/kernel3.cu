@@ -16,7 +16,6 @@ __global__ void mandelKernel(float lowerX, float lowerY, float stepX, float step
 
 	for(int t = 0; t < tile_size; t++)
 	{
-		int thread_index = thisY * pitch + thisX + t;
 		float c_re = lowerX + (thisX + t) * stepX;
 		float z_re = c_re, z_im = c_im;
 		int i;
@@ -33,7 +32,7 @@ __global__ void mandelKernel(float lowerX, float lowerY, float stepX, float step
 
 		//use cudaMallocPitch will add pad to make global memory access coalesced
 		//pitch means (width+pad) count
-		result[thread_index] = i;
+		*((int*)((char*)result + thisY * pitch ) + thisX + t) = i;
 	}
 }
 

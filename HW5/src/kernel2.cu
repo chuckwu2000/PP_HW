@@ -9,7 +9,6 @@ __global__ void mandelKernel(float lowerX, float lowerY, float stepX, float step
 	// float y = lowerY + thisY * stepY;
 	int thisX = blockIdx.x * blockDim.x + threadIdx.x;
 	int thisY = blockIdx.y * blockDim.y + threadIdx.y;
-	int thread_index = thisY * pitch + thisX;
 
 	float c_re = lowerX + thisX * stepX;
 	float c_im = lowerY + thisY * stepY;
@@ -29,7 +28,8 @@ __global__ void mandelKernel(float lowerX, float lowerY, float stepX, float step
 
 	//use cudaMallocPitch will add pad to make global memory access coalesced
 	//pitch means (width+pad) count
-	result[thread_index] = i;
+	//store example : T* pElement = (T*)((char*)BaseAddress + Row * pitch) + Column; (from CSDN)
+	*((int*)((char*)result + thisY * pitch ) + thisX) = i;
 }
 
 // Host front-end function that allocates the memory and launches the GPU kernel
