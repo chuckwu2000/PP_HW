@@ -52,7 +52,7 @@ void hostFE (float upperX, float upperY, float lowerX, float lowerY, int* img, i
 
 	{
 		dim3 dimBlock(32, 5);
-		dim3 dimGrid(resX / (32 * 10), resY / 5);
+		dim3 dimGrid(resX / (32 * tile_size), resY / 5);
 		mandelKernel<<<dimGrid, dimBlock>>>(lowerX, lowerY, stepX, stepY, resX, maxIterations, dev_img, pitch);
 	}
 
