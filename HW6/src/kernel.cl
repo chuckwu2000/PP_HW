@@ -12,9 +12,12 @@ __kernel void convolution(int filterWidth, __global float *filter, int imageHeig
 	{
 		for(int j = -halffilterSize; j <= halffilterSize; j++)
 		{
-			if(row_pos + i >= 0 && row_pos + i < imageHeight && col_pos + j >= 0 && col_pos + j < imageWidth)
+			if(filter[(i + halffilterSize) * filterWidth + (j + halffilterSize)] != 0)
 			{
-				sum += inputImage[(row_pos + i) * imageWidth + (col_pos + j)] * filter[(i + halffilterSize) * filterWidth + (j + halffilterSize)];
+				if(row_pos + i >= 0 && row_pos + i < imageHeight && col_pos + j >= 0 && col_pos + j < imageWidth)
+				{
+					sum += inputImage[(row_pos + i) * imageWidth + (col_pos + j)] * filter[(i + halffilterSize) * filterWidth + (j + halffilterSize)];
+				}
 			}
 		}
 	}
