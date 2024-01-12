@@ -1,0 +1,20 @@
+#ifndef KERNEL_H_
+#define KERNEL_H_
+
+#define ITER_X 1
+#define ITER_Y 1
+#define BLOCK_X 16
+#define BLOCK_Y 16
+
+typedef struct _Image {
+    unsigned width;
+    unsigned height;
+    unsigned data[1]; 
+} Image;
+
+
+__global__ void stencilCUDA(int width, int height, unsigned *d_in, unsigned *d_out, unsigned *d_buf);
+
+__global__ void produceOutputCUDA(int width, int height, int min, int max, unsigned *d_out, unsigned *d_buf);
+
+#endif /* KERNEL_H_ */
